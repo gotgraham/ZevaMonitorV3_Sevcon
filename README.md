@@ -11,6 +11,13 @@ It retains all the existing EVMS Monitor V3 features, and adds an additional scr
 - Phase Amps
 - ...
 
+To build:
+
+Install avr-gcc
+
+From the Firmware directory, run 'make all'. The makefile supports 'make all', 'make clean', and 'make flash'
+
+
 Status:
 
  WIP
