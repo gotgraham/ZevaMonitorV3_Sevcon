@@ -1,6 +1,6 @@
 # ZevaMonitorV3_SevconGen4
 
-This project is based on the now open source Zeva EVMS Monitor V3 from Ian Hooper - see license below.
+This project is based on the now open source Zeva EVMS Monitor V3 from Ian Hooper. It has an MIT license as does Ian's original source.
 
 It retains all the existing EVMS Monitor V3 features, and adds an additional screen for monitoring live parameters from a Sevcon Gen 4 controller.
 
