@@ -15,7 +15,6 @@ Status:
 
  WIP
 
----- LICENSE ----
 
 ZEVA EVMS Monitor V3
   Ian Hooper, August 2021
@@ -35,15 +34,3 @@ AVR microcontrollers use “fuses” for setting things like the clock speed and
 There is a PCB support bracket that should be 3D printed, which gets fitted between the LCD module and the control board, and fastened to the control board using an M3x6 machine screw. Then the control board can be soldered to the 34x interface pins on the LCD module to complete the internal assembly. There are two housing options supplied, one panel mount which gets attached to the assembly using 4x M3x10 machine screws, or an enclosed housing with foot which gets screwed together using 4x M3x16 countersunk machine screws, and the foot can be attached using an M3x20 machine screw plus M3 nyloc nut. The mating connector for the CAN bus port is Molex 39500-0005. Remember to also fit jumpers to the two 2-pin headers either side of the CAN port, for the CAN termination resistor and to disable settings lock.
 
 Once assembled and programmed, the EVMS Monitor should be ready to use. Please review the EVMS3 user manual for further information about installation and operation.
-
-----------
-
-LICENSE (MIT Open Source):
-
-Copyright (c) 2021 Ian Hooper, ZEVA
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
