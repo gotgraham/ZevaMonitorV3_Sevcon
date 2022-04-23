@@ -7,6 +7,7 @@
 
 // Note: Various #defined build options found in Common.h file
 
+#define __DELAY_BACKWARD_COMPATIBLE__
 
 #define DISPLAY_TYPE	ILI9341		// SSD1289 or ILI9325 or ILI9341
 #define SHOW_TOUCH_LOCATION	0 // Used for debugging touchscreen - writes touched coords in top left
@@ -100,7 +101,7 @@ short chargerCommsTimeout[3] = { 0, 0, 0 };
 short ticksSincePowerOn = 0;
 
 // Display pages
-enum { EVMS_CORE, MOTOR_CONTROLLER, TC_CHARGER, BMS_SUMMARY, BMS12_DETAILS, NUM_KNOWN_DEVICES }; 
+enum { EVMS_CORE, MOTOR_CONTROLLER, TC_CHARGER, BMS_SUMMARY, BMS12_DETAILS, NUM_KNOWN_DEVICES };
 
 // Function declarations
 void PrepareCanRX(unsigned char mob);
@@ -110,8 +111,8 @@ void HandleTouchUp();
 void DoSetupButtons(char isKeyRepeat);
 void TransmitSettings();
 void TransmitGaugeState();
-inline void Beep(short ticks);
-inline void UpdateBuzzer();
+static inline void Beep(short ticks);
+static inline void UpdateBuzzer();
 void AddDecimalPoint(char* buffer);
 void AddDecimalPoint2(char* buffer);
 void SetupPorts();
@@ -129,7 +130,7 @@ void RenderBMSSummary();
 void RenderBMSDetails();
 void RenderWarningOverlay();
 void RenderOptionsButtons();
-inline void RenderBorderBox(int lx, int ly, int rx, int ry, U16 Fcolor, U16 Bcolor);
+static inline void RenderBorderBox(int lx, int ly, int rx, int ry, U16 Fcolor, U16 Bcolor);
 void RenderButton(Button* button, bool needsRedraw);
 void RenderSettings();
 
@@ -203,13 +204,13 @@ ChargerData charger[3] = {{ 0, 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0, 0 }, { 0,
 char haveReceivedChargerData = false;
 char numChargers = 1; // Gets set to 3 if we receive data from third charger
 
-inline bool ButtonTouched(Button* button)
+static inline bool ButtonTouched(Button* button)
 {
 	return (touchX >= button->x-button->width/2 && touchX <= button->x+button->width/2
 		&& touchY >= button->y && touchY <= button->y + 32);
 }
 
-inline void DisplayOn(bool on, bool shouldSaveToEEPROM)
+static inline void DisplayOn(bool on, bool shouldSaveToEEPROM)
 {
 	if (on)
 	{
@@ -224,7 +225,7 @@ inline void DisplayOn(bool on, bool shouldSaveToEEPROM)
 		targetDisplayBrightness = 255;
 
 	if (shouldSaveToEEPROM)
-	{	
+	{
 		eeprom_write_byte((U8*)EEPROM_DISPLAY_BRIGHTNESS, targetDisplayBrightness);
 		eeprom_write_byte(0, 0); // Park EEPROM pointer to prevent corruption
 	}
@@ -278,7 +279,7 @@ SIGNAL(TIMER0_COMP_vect)
 {
 	if (displayBrightness < 254) // 254 is for 0% night brightness, and 255 is for actually off, but both should have no backlight
 #ifdef NEW_LCD
-		BACKLIGHT_PORT |= BACKLIGHT;	
+		BACKLIGHT_PORT |= BACKLIGHT;
 #else
 		BACKLIGHT_PORT &= ~BACKLIGHT;
 #endif
@@ -296,7 +297,7 @@ SIGNAL(TIMER1_OVF_vect) // Interrupts at about 30Hz
 	if (ticksSincePowerOn < 1) displayBrightness = 255;
 
 	OCR0A = displayBrightness; // Updates backlight PWM, inverted due to PNP transistor
-	
+
 	// Poll touchscreen
 	if (Touch_DataAvailable())
 	{
@@ -310,7 +311,7 @@ SIGNAL(TIMER1_OVF_vect) // Interrupts at about 30Hz
 	else
 	{
 		if (touchTimer > 0) HandleTouchUp();
-		
+
 		touchTimer = 0;
 		touchX = -1;
 		touchY = -1;
@@ -512,11 +513,11 @@ int main()
 
 	char result = LoadSettingsFromEEPROM();
 	if (result == EEPROM_BLANK || result == EEPROM_CORRUPT)
-	{	
+	{
 		SetError(CORRUPT_EEPROM_ERROR);
 		SaveSettingsToEEPROM();
 	}
-	
+
 	mcStatusBytes[0] = 0;
 	CalculateNumCells();
 
@@ -536,7 +537,7 @@ int main()
 #endif
 
 	sei(); // Enable interrupts
-	
+
 	while (1)
 	{
 		// Timed polling for things like comms timeouts
@@ -562,7 +563,7 @@ int main()
 				currentSensorTimeout--;
 			else
 				current = 0;
-			
+
 			if (mcCanTimeout > 0) mcCanTimeout--; // Only used in the MC status page
 
 			for (int n=0; n<3; n++)
@@ -621,7 +622,7 @@ int main()
 		char oldCoreStatus = coreStatus;
 		coreStatus = evmsStatusBytes[0]&0x07; // Bottom 3 bits are status
 		if (oldCoreStatus != coreStatus) displayNeedsFullRedraw = true;
-		
+
 		char newError = evmsStatusBytes[0]>>3; // Top 5 bytes hold error codes
 		if (error < CORE_COMMS_ERROR) SetError(newError); // Only update error with Core error status if a Monitor error isn't pending
 
@@ -637,7 +638,7 @@ int main()
 				displayNeedsFullRedraw = true;
 				displayedPage = MOTOR_CONTROLLER;
 				showStartupScreen = false;
-			}				
+			}
 		}
 
 		if (isBMS16)
@@ -682,14 +683,14 @@ int main()
 			itoa(touchY, temp, 10);
 			strcat(buffer, temp);
 			strcat(buffer, " ");
-			
+
 			TFT_Text(buffer, 0, 0, 1, GREEN, BLACK);
 		}
 	}
 	return 0; // Compiler wants to see it
 }
 
-inline void CheckTouchedButton(Button* button)
+static inline void CheckTouchedButton(Button* button)
 {
 	if (ButtonTouched(button)) touchedButton = button;
 }
@@ -719,7 +720,7 @@ void HandleTouchDown()
 
 	if (!setupMode && touchTimer == 30 && !showOptionsButtons) // Held down for 1 second
 	{
-		showOptionsButtons = true;	
+		showOptionsButtons = true;
 		displayNeedsFullRedraw = true;
 	}
 	else if (touchTimer == 3)
@@ -728,7 +729,7 @@ void HandleTouchDown()
 		if (Abs(touchBufferX[0]-touchBufferX[1]) > 10 || Abs(touchBufferY[0]-touchBufferY[1]) > 10
 			|| Abs(touchBufferX[1]-touchBufferX[2]) > 10 || Abs(touchBufferY[1]-touchBufferY[2]) > 10)
 			return;
-		
+
 		if (showOptionsButtons)
 		{
 			CheckTouchedButton(&resetSocButton);
@@ -741,7 +742,7 @@ void HandleTouchDown()
 		{
 			CheckTouchedButton(&changeSetupPageButtonLeft);
 			CheckTouchedButton(&changeSetupPageButtonRight);
-			
+
 			// The same parameter and value button are also used for BMS configuration (module ID and cell count respectively)
 			CheckTouchedButton(&changeParameterButtonLeft);
 			CheckTouchedButton(&changeParameterButtonRight);
@@ -763,9 +764,9 @@ void HandleTouchDown()
 				CheckTouchedButton(&prevBmsModuleButton);
 			}
 
-			Beep(2);		
+			Beep(2);
 		}
-		
+
 		if (touchedButton) Beep(2); // Only beep if a button was touched
 	}
 	else if (touchTimer == 6) // then check for swipes
@@ -774,7 +775,7 @@ void HandleTouchDown()
 		for (int n=2; n<6; n++)
 		{
 			if (touchBufferY[n] - touchBufferY[n-1] < 5) swipingDown = false;
-			if (touchBufferY[n] - touchBufferY[n-1] > -5) swipingUp = false;			
+			if (touchBufferY[n] - touchBufferY[n-1] > -5) swipingUp = false;
 		}
 		if (swipingDown)
 		{
@@ -801,7 +802,7 @@ void HandleTouchUp()
 	if (touchTimer < 3 || Abs(touchBufferX[0]-touchBufferX[1]) > 10 || Abs(touchBufferY[0]-touchBufferY[1]) > 10
 		|| Abs(touchBufferX[1]-touchBufferX[2]) > 10 || Abs(touchBufferY[1]-touchBufferY[2]) > 10)
 			return;
-	
+
 	if (showOptionsButtons)
 	{
 		if (ButtonTouched(&resetSocButton) && touchedButton == &resetSocButton)
@@ -905,7 +906,7 @@ void HandleTouchUp()
 
 			if (displayedPage != oldPage) displayNeedsFullRedraw = true;
 		}
-		
+
 	}
 
 	touchedButton = 0;
@@ -946,13 +947,13 @@ void DoSetupButtons(char isKeyRepeat)
 			if (isBMS16)
 				while (bms16maximums[currentParameter] == 0) currentParameter++;
 
-			if (currentParameter == NUM_SETTINGS) currentParameter = 0;	
+			if (currentParameter == NUM_SETTINGS) currentParameter = 0;
 		}
 
 		if (ButtonTouched(&changeValueButtonLeft) || ButtonTouched(&changeValueButtonRight))
 		{
 			int delta = 1;
-			if (ButtonTouched(&changeValueButtonLeft)) delta = -1;					
+			if (ButtonTouched(&changeValueButtonLeft)) delta = -1;
 
 			// Prevent charger current from using 8th bit, since charger voltage needs it
 			if (currentParameter == CHARGER_CURRENT && delta == 1 && settings[CHARGER_CURRENT] == 127) delta = 0;
@@ -1038,7 +1039,7 @@ void DoSetupButtons(char isKeyRepeat)
 
 		if (ButtonTouched(&changeParameterButtonLeft))
 			currentBmsModule = Cap(currentBmsModule-1, 0, 15);
-		
+
 		if (ButtonTouched(&changeValueButtonLeft)) // Reduce by 1
 		{
 			bmsCellCounts[currentBmsModule] = Cap(bmsCellCounts[currentBmsModule]-1, 0, 12);
@@ -1061,13 +1062,13 @@ void DoSetupButtons(char isKeyRepeat)
 
 void TransmitSettings()
 {
-	// Pack and send expected BMS cell counts		
+	// Pack and send expected BMS cell counts
 	for (int n=0; n<8; n++)
 	{
 		txData[n] = bmsCellCounts[n*2];
 		txData[n] += bmsCellCounts[n*2+1]<<4;
 	}
-	
+
 	CanTX(CORE_RECEIVE_CELL_NUMS, txData, 8, 20);
 	// Pack and send updated core settings
 	for (int n=0; n<8; n++) txData[n] = settings[n];
@@ -1078,7 +1079,7 @@ void TransmitSettings()
 	CanTX(CORE_RECEIVE_CONFIG3, txData, 8, 20);
 	for (int n=0; n<8; n++) txData[n] = settings[n+24];
 	CanTX(CORE_RECEIVE_CONFIG4, txData, 8, 20); // -> Remember, Core saves to EEPROM only after receiving this packet
-	
+
 	// Send motor controller settings
 	for (int n=0; n<4; n++) txData[n] = mcSettings[n];
 	txData[4] = mcSettings[MC_RAMP_RATE] + (mcSettings[MC_SPEED_CONTROL_TYPE]<<4) + (mcSettings[MC_TORQUE_CONTROL_TYPE]<<6);
@@ -1096,7 +1097,7 @@ void TransmitSettings()
 			bmsCellCounts[1] = settings[NUM_CELLS]-8;
 		}
 	}
-	
+
 	SaveSettingsToEEPROM();
 
 	// And now that updating is all done, tell Core to go back to Idle
@@ -1118,19 +1119,19 @@ void TransmitGaugeState()
 		{
 			case FUEL_GAUGE_FULL:
 				txData[0] = CORE_SETUP_EDIT_FUEL_GAUGE;
-				break;	
+				break;
 
 			case FUEL_GAUGE_EMPTY:
 				txData[0] = CORE_SETUP_EDIT_FUEL_GAUGE;
-				break;	
+				break;
 
 			case TEMP_GAUGE_HOT:
 				txData[0] = CORE_SETUP_EDIT_TEMP_GAUGE;
-				break;	
+				break;
 
 			case TEMP_GAUGE_COLD:
 				txData[0] = CORE_SETUP_EDIT_TEMP_GAUGE;
-				break;	
+				break;
 		}
 		CanTX(CORE_SET_STATE, txData, 2, 0);
 	}
@@ -1148,7 +1149,7 @@ void Beep(short ticks)
 void UpdateBuzzer()
 {
 	if (beepTimer > -100) beepTimer--;
-		
+
 	if (beepTimer == 0) PORTB &= ~BUZZER;
 
 	if (beepTimer < -8 && error != NO_ERROR
@@ -1165,7 +1166,7 @@ void AddDecimalPoint(char* buffer) // (to a number stored as a string)
 {
 	short i = strlen(buffer);
 	if (i == 1) // i.e single character, we want to add a leading zero
-	{	
+	{
 		buffer[2] = 0;
 		buffer[1] = buffer[0];
 		buffer[0] = '0';
@@ -1229,7 +1230,7 @@ void WriteTemp(char* buffer, short celcius)
 void CanTX(long packetID, unsigned char* data, unsigned char length, unsigned char delayAfterSending)
 {
 	canTXing = true; // Semaphor so it doesn't RX while TXing
-	
+
 	st_cmd_t canFrame;
 	canFrame.pt_data = data;
 	if (USE_29BIT_IDS)
@@ -1261,7 +1262,7 @@ void SetupPorts()
 	DDRB = BUZZER + BUZZER2;
 	DP_Hi_DDR = 0b11111111; // DP_Hi
 	BACKLIGHT_DDR |= BACKLIGHT;
-	
+
 #ifdef NEW_LCD
 	DDRG |= RST + WR;
 	DDRD |= CS + RS + RD;
@@ -1287,10 +1288,10 @@ char LoadSettingsFromEEPROM()
 {
 	unsigned char tempSettings[NUM_SETTINGS];
 	unsigned char tempCellCount[MAX_BMS_MODULES];
-	
+
 	if (eeprom_read_dword((uint32_t*)(EEPROM_OFFSET + NUM_SETTINGS + MAX_BMS_MODULES/2 + 2)) != 0xC0FFEE)
 		return EEPROM_BLANK;
-	
+
 	unsigned short checksum = 0;
 	for (int i=0; i<NUM_SETTINGS; i++)
 	{
@@ -1377,7 +1378,7 @@ void RenderStartupScreen()
 
 	TFT_CentredText("ZEVA EVMS Monitor", 160, 90, 1, TEXT_COLOUR, BGND_COLOUR);
 	TFT_CentredText("Waiting for data..", 160, 130, 1, BLUE, BGND_COLOUR);
-	
+
 	// Draw crosshairs at touch location
 	if (touchX > 20 && touchY > 20 && touchX < 300 && touchY < 300)
 	{
@@ -1403,9 +1404,9 @@ void RenderMainView()
 		else
 			strcpy(buffer, "EVMS: ");
 		strcat(buffer, statusText);
-		
+
 		DrawTitlebar(buffer);
-		
+
 		TFT_Text("Voltage", 16, 30, 1, LABEL_COLOUR, BGND_COLOUR);
 
 		TFT_Text("Current", 16, 88, 1, LABEL_COLOUR, BGND_COLOUR);
@@ -1419,7 +1420,7 @@ void RenderMainView()
 			TFT_Text("Aux V", 16, 202, 1, LABEL_COLOUR, BGND_COLOUR);
 		if (temperature > 0 && !isBMS16) TFT_Text("Temp", 100, 202, 1, LABEL_COLOUR, BGND_COLOUR);
 		if (isolation <= 100 && !isBMS16) TFT_Text("Isol", 172, 202, 1, LABEL_COLOUR, BGND_COLOUR);
-		TFT_Text("SoC", 244, 202, 1, LABEL_COLOUR, BGND_COLOUR);		
+		TFT_Text("SoC", 244, 202, 1, LABEL_COLOUR, BGND_COLOUR);
 
 		TFT_Box(243, 36, 279, 48, L_GRAY);
 		TFT_Box(245, 38, 277, 46, D_GRAY);
@@ -1442,7 +1443,7 @@ void RenderMainView()
 		}
 		else
 			itoa(voltage/10, buffer, 10);
-	
+
 		strcat(buffer, "V  ");
 	}
 	TFT_Text(buffer, 16, 48, 2, TEXT_COLOUR, BGND_COLOUR);
@@ -1498,16 +1499,16 @@ void RenderMainView()
 	}
 	else if (isBMS16) // Always showing Temp label for BMS16, but '-' if no temp available (evens up GUI appearance)
 		TFT_Text(" -  ", 16, 220, 1, TEXT_COLOUR, BGND_COLOUR);
-	
+
 	if (isolation <= 100 && !isBMS16)
 	{
 		int isol = ((isolation+5)/10)*10; // Do some rounding to nearest 10% so it doesn't jiggle too much
-		
+
 		itoa(isol, buffer, 10); // Leakage
 		strcat(buffer, "%  ");
 		TFT_Text(buffer, 172, 220, 1, TEXT_COLOUR, BGND_COLOUR);
 	}
-	
+
 	int ampHours = (evmsStatusBytes[1]<<8) + evmsStatusBytes[2];
 
 	int soc = Cap(201L*(long)ampHours/2L/(long)(settings[PACK_CAPACITY]*PACK_CAPACITY_MULTIPLIER*10), 0, 100); // 201L/2L is for rounding instead of truncating
@@ -1527,7 +1528,7 @@ void RenderMainView()
 		}
 	}
 	else
-	{	
+	{
 		itoa(soc, buffer, 10);
 		strcat(buffer, "%  ");
 	}
@@ -1565,7 +1566,7 @@ void DrawCellsBarGraph()
 		//balanceVoltage = (long)packVoltage/(long)numCells + BALANCE_TOLERANCE;
 		balanceVoltage = (minCellVoltage + maxCellVoltage) / 2 + BALANCE_TOLERANCE; // Oct 2020: New balance scheme, works better for single low cells
 	}
-	
+
 	int width = 0;
 	if (numCells > 0) width = 320 / numCells;
 	int margin = (320 - numCells*width)/2;
@@ -1602,10 +1603,10 @@ void DrawCellsBarGraph()
 				col = ORANGE;
 
 			unsigned int height = 5 + (v - min)*40/range;
-			
+
 			TFT_Box(margin+n*width+1, 185, margin+(n+1)*width-gap, 238-height, BGND_COLOUR); // Blank out anything above bars
 			TFT_Box(margin+n*width+1, 239-height, margin+(n+1)*width-gap, 239, col);
-			
+
 			// Add dotted line, one bar at a time to minimise flashing
 			int start = margin+n*width;
 			int end = margin+(n+1)*width;
@@ -1642,13 +1643,13 @@ void RenderMainViewNoCurrentSensor()
 		else
 			strcpy(buffer, "EVMS: ");
 		strcat(buffer, statusText);
-		
+
 		DrawTitlebar(buffer);
-		
+
 		TFT_Text("Pack voltage", 16, 40, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Temperature", 170, 40, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Isolation", 16, 110, 1, LABEL_COLOUR, BGND_COLOUR);
-		TFT_Text("Aux voltage", 170, 110, 1, LABEL_COLOUR, BGND_COLOUR);			
+		TFT_Text("Aux voltage", 170, 110, 1, LABEL_COLOUR, BGND_COLOUR);
 	}
 
 	int voltage = (evmsStatusBytes[3]<<8) + evmsStatusBytes[4];
@@ -1663,19 +1664,19 @@ void RenderMainViewNoCurrentSensor()
 		}
 		else
 			itoa(voltage/10, buffer, 10);
-	
+
 		strcat(buffer, "V ");
 	}
 	TFT_Text(buffer, 16, 60, 2, TEXT_COLOUR, BGND_COLOUR);
-	
+
 	int temperature = evmsStatusBytes[7];
 	if (temperature == 0)
 		strcpy(buffer, " -    ");
 	else
 		WriteTemp(buffer, temperature-40);
-	
+
 	TFT_Text(buffer, 170, 60, 2, TEXT_COLOUR, BGND_COLOUR);
-	
+
 	if (voltage == 0)
 		strcpy(buffer, " -    ");
 	else
@@ -1708,7 +1709,7 @@ void RenderMCStatus()
 			case MC600C: DrawTitlebar("MC600C Status"); break;
 			case MC1000C: DrawTitlebar("MC1000C Status"); break;
 			default: DrawTitlebar("(Unknown Controller)"); break;
-		}		
+		}
 
 		TFT_Text("Batt Volts", 16, 30, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Batt Amps", 170, 30, 1, LABEL_COLOUR, BGND_COLOUR);
@@ -1727,15 +1728,15 @@ void RenderMCStatus()
 		int battVolts = mcStatusBytes[1] + (mcStatusBytes[6]&0b10000000)*2;
 		int pwm = mcStatusBytes[7];
 		int motorVolts = (long)battVolts * (long)pwm / 255L;
-		
+
 		itoa(battVolts, buffer, 10); // Batt volts
 		strcat(buffer, "V  ");
 		TFT_Text(buffer, 16, 48, 2, TEXT_COLOUR, BGND_COLOUR);
-	
+
 		itoa(mcStatusBytes[2]*5, buffer, 10); // Batt amps
 		strcat(buffer, "A  ");
 		TFT_Text(buffer, 170, 48, 2, TEXT_COLOUR, BGND_COLOUR);
-	
+
 		itoa(motorVolts, buffer, 10); // Motor volts
 		strcat(buffer, "V  ");
 		TFT_Text(buffer, 16, 106, 2, TEXT_COLOUR, BGND_COLOUR);
@@ -1780,12 +1781,12 @@ void RenderChargerStatus()
 		RenderThreeChargerStatus();
 		return;
 	}
-	
+
 	if (displayNeedsFullRedraw) // Render static parts
 	{
 		displayNeedsFullRedraw = false;
 
-		DrawTitlebar("TC Charger Status");		
+		DrawTitlebar("TC Charger Status");
 
 		TFT_Text("Output Volt", 16, 40, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Output Amps", 170, 40, 1, LABEL_COLOUR, BGND_COLOUR);
@@ -1803,7 +1804,7 @@ void RenderChargerStatus()
 	else
 		strcpy(buffer, " -   ");
 	TFT_Text(buffer, 16, 60, 2, TEXT_COLOUR, BGND_COLOUR);
-	
+
 	if (charger[0].instCurrent > 0)
 	{
 		itoa(charger[0].instCurrent, buffer, 10); // Output amps
@@ -1850,11 +1851,11 @@ void RenderThreeChargerStatus()
 	{
 		displayNeedsFullRedraw = false;
 
-		DrawTitlebar("Charger Status");		
+		DrawTitlebar("Charger Status");
 
 		TFT_Text("Output Volts", 16, 30, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Total Amps", 170, 30, 1, LABEL_COLOUR, BGND_COLOUR);
-		
+
 		TFT_Text("Target Volts", 16, 90, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Target Amps", 170, 90, 1, LABEL_COLOUR, BGND_COLOUR);
 
@@ -1877,11 +1878,11 @@ void RenderThreeChargerStatus()
 	if (divisor == 1) AddDecimalPoint(buffer);
 	strcat(buffer, "A  ");
 	TFT_Text(buffer, 170, 50, 2, TEXT_COLOUR, BGND_COLOUR);
-	
+
 	voltage = settings[CHARGER_VOLTAGE];
 	if (settings[CHARGER_CURRENT] & 0b10000000) voltage += 256;
 	current = (settings[CHARGER_CURRENT]&0b01111111)*numChargers;
-	
+
 	itoa(voltage, buffer, 10); // Target volts - same for all chargers
 	strcat(buffer, "V  ");
 	TFT_Text(buffer, 16, 110, 2, TEXT_COLOUR, BGND_COLOUR);
@@ -1985,22 +1986,22 @@ void RenderBMSSummary()
 		strcat(buffer, " cells");
 
 		DrawTitlebar(buffer);
-		
-		if (isBMS16 && settings[SHUNT_SIZE] == 0 && !haveReceivedCurrentData) 
+
+		if (isBMS16 && settings[SHUNT_SIZE] == 0 && !haveReceivedCurrentData)
 			TFT_Text("Pack voltage", 16, 40, 1, LABEL_COLOUR, BGND_COLOUR);
 		else
 			TFT_Text("Avg voltage", 16, 40, 1, LABEL_COLOUR, BGND_COLOUR);
-		
-		
-		
+
+
+
 		if (isBMS16)
 			TFT_Text("Temperature", 170, 40, 1, LABEL_COLOUR, BGND_COLOUR);
 		else
 			TFT_Text("Avg temp", 170, 40, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Min voltage", 16, 110, 1, LABEL_COLOUR, BGND_COLOUR);
-		TFT_Text("Max voltage", 170, 110, 1, LABEL_COLOUR, BGND_COLOUR);			
+		TFT_Text("Max voltage", 170, 110, 1, LABEL_COLOUR, BGND_COLOUR);
 	}
-	
+
 	if (isBMS16 && settings[SHUNT_SIZE] == 0 && !haveReceivedCurrentData)
 	{
 		itoa(packVoltage/100, buffer, 10);
@@ -2013,7 +2014,7 @@ void RenderBMSSummary()
 	}
 	strcat(buffer, "V ");
 	TFT_Text(buffer, 16, 60, 2, TEXT_COLOUR, BGND_COLOUR);
-	
+
 	if (isBMS16 && evmsStatusBytes[7] > 0)
 	{
 		WriteTemp(buffer, evmsStatusBytes[7]-40);
@@ -2084,7 +2085,7 @@ void RenderBMSDetails()
 
 	bool fullRedraw = false;
 	if (displayNeedsFullRedraw)
-	{	
+	{
 		displayNeedsFullRedraw = false; // Have to sort of double buffer this in case of touch interrupts while drawing
 		fullRedraw = true;
 
@@ -2173,7 +2174,7 @@ void RenderBMSDetails()
 			if (cellVoltages[currentBmsModule][n] > balanceVoltage) col = ORANGE; // +5 mV tolerance for balancing
 			TFT_Box(12+75*(n&0x03), 88+30*(n/4), 72+75*(n&0x03), 89+30*(n/4), col);
 		}
-	
+
 		RenderButton(&nextBmsModuleButton, fullRedraw);
 		RenderButton(&prevBmsModuleButton, fullRedraw);
 	}
@@ -2186,12 +2187,12 @@ void RenderWarningOverlay()
 		displayNeedsFullRedraw = false;
 
 		for (int x=0; x<320; x+=2) TFT_Box(x, 0, x, 239, D_GRAY); // Sort of grays out the background
-	
+
 		TFT_Box(20, 70, 299, 169, RED);
 		TFT_Box(24, 74, 295, 165, BLACK);
 
 		strcpy_P(buffer, (char*)pgm_read_word(&(errorStrings[error])));
-	
+
 		TFT_CentredText("Warning:", 160, 90, 1, RED, BLACK);
 		TFT_CentredText(buffer, 160, 130, 1, WHITE, BLACK);
 	}
@@ -2221,7 +2222,7 @@ void RenderOptionsButtons()
 	RenderButton(&exitOptionsButton, needsRedraw);
 }
 
-inline void RenderBorderBox(int lx, int ly, int rx, int ry, U16 Fcolor, U16 Bcolor)
+static inline void RenderBorderBox(int lx, int ly, int rx, int ry, U16 Fcolor, U16 Bcolor)
 {
 	TFT_Box(lx, ly, rx, ry, Fcolor);
 	TFT_Box(lx+2, ly+2, rx-2, ry-2, Bcolor);
@@ -2230,10 +2231,10 @@ inline void RenderBorderBox(int lx, int ly, int rx, int ry, U16 Fcolor, U16 Bcol
 void RenderButton(Button* button, bool needsRedraw)
 {
 	bool touched = ButtonTouched(button) && touchedButton == button;
-	
+
 	if ((button->isTouched && !touched) || (!(button->isTouched) && touched) || needsRedraw)
 	{
-		// Needs redraw if state has changed		
+		// Needs redraw if state has changed
 		U16 Bcolor = BLACK;
 		if (touchX > 0 && touchY > 0 && touched) Bcolor = button->colour;
 		RenderBorderBox(button->x-button->width/2, button->y, button->x+button->width/2, button->y+32, button->colour, Bcolor);
@@ -2249,18 +2250,18 @@ void RenderSettings()
 	{
 		displayNeedsFullRedraw = false;
 		fullRedraw = true;
-		
+
 		if (isBMS16)
 			DrawTitlebar("BMS Setup");
 		else
 			DrawTitlebar("EVMS: Setup");
-		
+
 		if (!isBMS16 || haveReceivedMCData) TFT_Text("<", 8, 30, 2, TEXT_COLOUR, BGND_COLOUR);
 		TFT_Text("<", 8, 90, 2, TEXT_COLOUR, BGND_COLOUR);
 		TFT_Text("<", 8, 150, 2, TEXT_COLOUR, BGND_COLOUR);
 		if (!isBMS16 || haveReceivedMCData) TFT_Text(">", 288, 30, 2, TEXT_COLOUR, BGND_COLOUR);
 		TFT_Text(">", 288, 90, 2, TEXT_COLOUR, BGND_COLOUR);
-		TFT_Text(">", 288, 150, 2, TEXT_COLOUR, BGND_COLOUR);	
+		TFT_Text(">", 288, 150, 2, TEXT_COLOUR, BGND_COLOUR);
 	}
 
 	RenderButton(&exitSetupButton, fullRedraw);
@@ -2304,7 +2305,7 @@ void RenderSettings()
 		{
 			char temp[20];
 			itoa(value, temp, 10);
-		
+
 			strcpy(buffer, "      ");
 			strcat(buffer, temp);
 			strcat(buffer, mcUnits[mcCurrentParameter]);
@@ -2320,11 +2321,11 @@ void RenderSettings()
 
 		char temp[20];
 		strcpy_P(temp, (char*)pgm_read_word(&(generalSettingsLabels[currentParameter])));
-		
+
 		// Couple of reassigned settings for BMS16
 		if (isBMS16 && currentParameter == NUM_CELLS) strcpy(temp, "  Num Cells  ");
 		if (isBMS16 && currentParameter == SHUNT_SIZE) strcpy(temp, "  Shunt Size  ");
-		
+
 		strcpy(buffer, " ");
 		strcat(buffer, temp);
 		strcat(buffer, " "); // White space to clean up previous label if longer
@@ -2360,7 +2361,7 @@ void RenderSettings()
 
 			if (currentParameter == CHARGER_VOLTAGE || currentParameter == CHARGER_VOLTAGE2
 				|| currentParameter == FULL_VOLTAGE) value *= PACK_VOLTAGE_MULTIPLIER;
-			
+
 			if (*units == 'C' && settings[USE_FAHRENHEIT])
 			{
 				value = value*9/5+32;
@@ -2420,5 +2421,5 @@ void RenderSettings()
 			strcat(buffer, "    ");
 
 		TFT_CentredText(buffer, 160, 170, 1, TEXT_COLOUR, BGND_COLOUR);
-	}	
+	}
 }
