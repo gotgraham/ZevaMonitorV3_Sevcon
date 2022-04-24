@@ -1705,10 +1705,10 @@ void RenderMCStatus()
 
 		DrawTitlebar("Sevcon Gen4 Status");
 
-		TFT_Text("Batt Volts", 16, 30, 1, LABEL_COLOUR, BGND_COLOUR);
-		TFT_Text("Batt Amps", 170, 30, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("SoC", 16, 30, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("RPM", 170, 30, 1, LABEL_COLOUR, BGND_COLOUR);
 
-		TFT_Text("Motor Volts", 16, 88, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("Batt Amps", 16, 88, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Motor Amps", 170, 88, 1, LABEL_COLOUR, BGND_COLOUR);
 
 		TFT_Text("Motor Temp", 16, 146, 1, LABEL_COLOUR, BGND_COLOUR);
@@ -1719,23 +1719,16 @@ void RenderMCStatus()
 
 	if (true)// mcCanTimeout > 0) // 1 second
 	{
-		// Battery Voltage
-		int voltage = (evmsStatusBytes[3]<<8) + evmsStatusBytes[4];
-		if (voltage == 0)
-			strcpy(buffer, " -    ");
-		else
-		{
-			if (voltage < 1000 && numCells > 0)
-			{
-				itoa(voltage, buffer, 10);
-				AddDecimalPoint(buffer);
-			}
-			else
-				itoa(voltage/10, buffer, 10);
-
-			strcat(buffer, "V ");
-		}
+		// SoC
+		int ampHours = (evmsStatusBytes[1]<<8) + evmsStatusBytes[2];
+		int soc = Cap(201L*(long)ampHours/2L/(long)(settings[PACK_CAPACITY]*PACK_CAPACITY_MULTIPLIER*10), 0, 100); // 201L/2L is for rounding instead of truncating
+		itoa(soc, buffer, 10);
+		strcat(buffer, "%  ");
 		TFT_Text(buffer, 16, 48, 2, TEXT_COLOUR, BGND_COLOUR);
+
+		// RPM
+		itoa(2345, buffer, 10); // Motor amps
+		TFT_Text(buffer, 170, 48, 2, TEXT_COLOUR, BGND_COLOUR);
 
 		// Battery Amps
 		int currenty = (current+50L)/100L; // round to 0.1A resolution 16 bit
@@ -1754,11 +1747,6 @@ void RenderMCStatus()
 
 			strcat(buffer, "A  ");
 		}
-		TFT_Text(buffer, 170, 48, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		int motorVolts = 0;
-		itoa(motorVolts, buffer, 10); // Motor volts
-		strcat(buffer, "V  ");
 		TFT_Text(buffer, 16, 106, 2, TEXT_COLOUR, BGND_COLOUR);
 
 		itoa(mcStatusBytes[4]*5, buffer, 10); // Motor amps
