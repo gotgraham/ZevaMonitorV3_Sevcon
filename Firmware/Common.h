@@ -254,7 +254,7 @@ enum { // Settings
 	NUM_SETTINGS };
 
 unsigned char settings[NUM_SETTINGS] = {
-	20,		// Pack capacity (Ah x 5)
+	7,		// Pack capacity (Ah x 5)
 	20,		// Soc warning (%)
 	80,		// Full voltage (x2V)
 	121,	// Current warning (A x10)
@@ -267,28 +267,28 @@ unsigned char settings[NUM_SETTINGS] = {
 	20,		// Fuel gauge empty
 	80,		// Temp gauge hot
 	20,		// Temp gauge cold
-	100,	// BMS min voltage (1.50 + 0.01N V)
-	180,	// BMS max voltage (2.00 + 0.01N V)
+	150,	// BMS min voltage (1.50 + 0.01N V)
+	220,	// BMS max voltage (2.00 + 0.01N V)
 	251,	// Balance voltage (2.00 + 0.01N V,     251 = dynamic)
 	20,		// BMS hysteresis (stationary mode only 0.01V resolution)
 	0,		// BMS min temp (-40)
 	141,	// BMS max temp (-40)
 //	0,		// Low temp charge restrict
-	100,	// Charger voltage (mostly, also needs 9th bit stored in next byte)
-	10,		// Charger current
-	100,	// Charger voltage 2
+	117,	// Charger voltage (mostly, also needs 9th bit stored in next byte)
+	20,		// Charger current
+	117,	// Charger voltage 2
 	20,		// Charger current 2
 	5,		// CAN power down delay
 	0,		// MPI function
 	0,		// MPO1 function
 	0,		// MPO2 function
 	1,		// Number of parallel strings
-	1,		// Enable precharge
+	0,		// Enable precharge
 	0, 		// Stationary version (true/false)
 	0,		// Reverse current display
 	10,		// Night brightness
 	1,		// Buzzer on
-	0,		// Use fahrenheit
+	1,		// Use fahrenheit
 	0,		// Percentage or Amp-hours
 };
 
@@ -456,7 +456,7 @@ unsigned char bms16maximums[NUM_SETTINGS] = {
 		"V", "V", "V", "V", "C", "C", "V", "A", "V", "A", "min", "", "", "", "", "", "", "", "%", "", "", "" };
 #endif
 
-unsigned char bmsCellCounts[16] = { 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+unsigned char bmsCellCounts[16] = { 10, 10, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 //unsigned char bmsCellCounts[24] = { 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12 };
 
 // Utility functions

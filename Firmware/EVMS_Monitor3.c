@@ -94,7 +94,7 @@ unsigned char mcStatusBytes[8];
 short mcCanTimeout = 0;
 
 char haveReceivedEVMSData = 0;
-char haveReceivedMCData = 0;
+char haveReceivedMCData = 1; 
 
 short chargerCommsTimeout[3] = { 0, 0, 0 };
 
@@ -212,7 +212,7 @@ static inline bool ButtonTouched(Button* button)
 
 static inline void DisplayOn(bool on, bool shouldSaveToEEPROM)
 {
-	if (on)
+	if (true) //on)
 	{
 		if (displayDimmed || headlightsOn)
 			targetDisplayBrightness = 254 - settings[NIGHT_BRIGHTNESS]*settings[NIGHT_BRIGHTNESS] * 5/2;
@@ -518,7 +518,7 @@ int main()
 		SaveSettingsToEEPROM();
 	}
 
-	mcStatusBytes[0] = 0;
+	mcStatusBytes[0] = 0xff; //0;
 	CalculateNumCells();
 
 	int lastDisplayBrightness = eeprom_read_byte((U8*)EEPROM_DISPLAY_BRIGHTNESS);
@@ -1703,13 +1703,7 @@ void RenderMCStatus()
 	{
 		displayNeedsFullRedraw = false;
 
-		//char statusText[20];
-		switch (mcStatusBytes[0] & 0x0F)
-		{
-			case MC600C: DrawTitlebar("MC600C Status"); break;
-			case MC1000C: DrawTitlebar("MC1000C Status"); break;
-			default: DrawTitlebar("(Unknown Controller)"); break;
-		}
+		DrawTitlebar("Sevcon Gen4 Status");
 
 		TFT_Text("Batt Volts", 16, 30, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Batt Amps", 170, 30, 1, LABEL_COLOUR, BGND_COLOUR);
@@ -1717,26 +1711,52 @@ void RenderMCStatus()
 		TFT_Text("Motor Volts", 16, 88, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Motor Amps", 170, 88, 1, LABEL_COLOUR, BGND_COLOUR);
 
-		TFT_Text("Temp", 16, 146, 1, LABEL_COLOUR, BGND_COLOUR);
-		TFT_Text("Throttle", 170, 146, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("Motor Temp", 16, 146, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("Invtr Temp", 170, 146, 1, LABEL_COLOUR, BGND_COLOUR);
 	}
 
 	// Dynamic parts
 
-	if (mcCanTimeout > 0) // 1 second
+	if (true)// mcCanTimeout > 0) // 1 second
 	{
-		int battVolts = mcStatusBytes[1] + (mcStatusBytes[6]&0b10000000)*2;
-		int pwm = mcStatusBytes[7];
-		int motorVolts = (long)battVolts * (long)pwm / 255L;
+		// Battery Voltage
+		int voltage = (evmsStatusBytes[3]<<8) + evmsStatusBytes[4];
+		if (voltage == 0)
+			strcpy(buffer, " -    ");
+		else
+		{
+			if (voltage < 1000 && numCells > 0)
+			{
+				itoa(voltage, buffer, 10);
+				AddDecimalPoint(buffer);
+			}
+			else
+				itoa(voltage/10, buffer, 10);
 
-		itoa(battVolts, buffer, 10); // Batt volts
-		strcat(buffer, "V  ");
+			strcat(buffer, "V ");
+		}
 		TFT_Text(buffer, 16, 48, 2, TEXT_COLOUR, BGND_COLOUR);
 
-		itoa(mcStatusBytes[2]*5, buffer, 10); // Batt amps
-		strcat(buffer, "A  ");
+		// Battery Amps
+		int currenty = (current+50L)/100L; // round to 0.1A resolution 16 bit
+		if (settings[REVERSE_CURRENT_DISPLAY]) currenty = -currenty;
+		if (false) //currentSensorTimeout == 0 && !isBMS16)
+			strcpy(buffer, " -    ");
+		else
+		{
+			if (Abs(currenty) < 1000)
+			{
+				itoa(currenty, buffer, 10);
+				AddDecimalPoint(buffer);
+			}
+			else
+				itoa(currenty/10, buffer, 10);
+
+			strcat(buffer, "A  ");
+		}
 		TFT_Text(buffer, 170, 48, 2, TEXT_COLOUR, BGND_COLOUR);
 
+		int motorVolts = 0;
 		itoa(motorVolts, buffer, 10); // Motor volts
 		strcat(buffer, "V  ");
 		TFT_Text(buffer, 16, 106, 2, TEXT_COLOUR, BGND_COLOUR);
@@ -1745,20 +1765,19 @@ void RenderMCStatus()
 		strcat(buffer, "A  ");
 		TFT_Text(buffer, 170, 106, 2, TEXT_COLOUR, BGND_COLOUR);
 
-		WriteTemp(buffer, mcStatusBytes[5]); // Temp
+		WriteTemp(buffer, 8); // Motor Temp
 		TFT_Text(buffer, 16, 164, 2, TEXT_COLOUR, BGND_COLOUR);
 
-		itoa(mcStatusBytes[6]&0b01111111, buffer, 10); // Throttle
-		strcat(buffer, "%   ");
+		WriteTemp(buffer, 8); // Inverter Temp
 		TFT_Text(buffer, 170, 164, 2, TEXT_COLOUR, BGND_COLOUR);
 
-		int mcError = mcStatusBytes[0]>>4;
-		unsigned short col = RED;
-		if (mcError == MC_THERMAL_CUTBACK_ERROR) col = ORANGE;
-		if (mcError == MC_SLEEPING) col = L_GRAY;
-		if (mcError == MC_NO_ERROR) col = GREEN;
+		// int mcError = mcStatusBytes[0]>>4;
+		// unsigned short col = RED;
+		// if (mcError == MC_THERMAL_CUTBACK_ERROR) col = ORANGE;
+		// if (mcError == MC_SLEEPING) col = L_GRAY;
+		// if (mcError == MC_NO_ERROR) col = GREEN;
 
-		TFT_CentredText(mcErrors[mcError], 160, 210, 1, col, BGND_COLOUR);
+		// TFT_CentredText(mcErrors[mcError], 160, 210, 1, col, BGND_COLOUR);
 	}
 	else // Comms error
 	{
