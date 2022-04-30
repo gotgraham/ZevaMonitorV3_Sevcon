@@ -52,6 +52,10 @@ enum { BMS_REQUEST_DATA, BMS_REPLY1, BMS_REPLY2, BMS_REPLY3, BMS_REPLY4 };
 #define TC_CHARGER3_RX_ID	0x1806E8F4
 #define TC_CHARGER3_TX_ID	0x18FF50E8
 
+// Sevcon Gen4
+#define SEV_STATUS_0 0x281  // <MotorTemp 16t> <Throttle Input Voltage 16> <RPM 32>
+#define SEV_STATUS_1 0x381  // <Dig Inputs 8> <Cap Voltage 16> <Batt Current 16> <Heatsink Temp 8> <Batt voltage 16>
+
 // Motor Controller stuff
 enum { NO_MC, MC600C, MC1000C };
 enum { MC_STATUS_PACKET_ID = 50, MC_SET_THROTTLE_ID, MC_RECEIVE_SETTINGS_ID, MC_SEND_SETTINGS_ID };
@@ -256,12 +260,12 @@ enum { // Settings
 unsigned char settings[NUM_SETTINGS] = {
 	7,		// Pack capacity (Ah x 5)
 	20,		// Soc warning (%)
-	80,		// Full voltage (x2V)
+	59,		// Full voltage (x2V)
 	121,	// Current warning (A x10)
 	121,	// Current trip (A x10)
 	151,	// Over temp (degC)
 	10,		// Min aux voltage (V)
-	50,		// Min isolation (% of whatever full scale is)
+	0,		// Min isolation (% of whatever full scale is)
 	2,		// Tacho PPR
 	80,		// Fuel gauge full
 	20,		// Fuel gauge empty

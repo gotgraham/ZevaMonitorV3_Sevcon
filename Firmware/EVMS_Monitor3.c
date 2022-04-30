@@ -91,10 +91,13 @@ int currentSensorTimeout = 0;
 char haveReceivedCurrentData = false;
 
 unsigned char mcStatusBytes[8];
+unsigned char sevStatus0Bytes[8];
+unsigned char sevStatus1Bytes[8];
+
 short mcCanTimeout = 0;
 
 char haveReceivedEVMSData = 0;
-char haveReceivedMCData = 1; 
+char haveReceivedMCData = 1;
 
 short chargerCommsTimeout[3] = { 0, 0, 0 };
 
@@ -148,7 +151,7 @@ short ticks = 0; // For main loop timing
 
 volatile uint8_t evmsStatusBytes[8];
 
-signed char displayedPage = EVMS_CORE;
+signed char displayedPage = MOTOR_CONTROLLER;
 
 volatile bool displayNeedsFullRedraw = true;
 bool showOptionsButtons;
@@ -410,6 +413,20 @@ void ProcessCanRX(unsigned char mob)
 			*/
 			break;
 
+		case SEV_STATUS_0:
+			// <MotorTemp 16t> <Throttle Input Voltage 16> <RPM 32>
+			for (int n=0; n<8; n++) sevStatus0Bytes[n] = rxData[mob][n];
+			mcCanTimeout = 4;
+			haveReceivedMCData = true;
+			break;
+
+		case SEV_STATUS_1:
+			// <Dig Inputs 8> <Cap Voltage 16> <Batt Current 16> <Heatsink Temp 8> <Batt voltage 16>
+			for (int n=0; n<8; n++) sevStatus1Bytes[n] = rxData[mob][n];
+			mcCanTimeout = 4;
+			haveReceivedMCData = true;
+			break;
+
 		case MC_SEND_SETTINGS_ID:
 			for (int n=0; n<4; n++) mcSettings[n] = rxData[mob][n]; // First four match 1:1
 			mcSettings[MC_RAMP_RATE] = rxData[mob][4]&0b00001111; // Bottom 4 bits hold ramp rate
@@ -518,7 +535,6 @@ int main()
 		SaveSettingsToEEPROM();
 	}
 
-	mcStatusBytes[0] = 0xff; //0;
 	CalculateNumCells();
 
 	int lastDisplayBrightness = eeprom_read_byte((U8*)EEPROM_DISPLAY_BRIGHTNESS);
@@ -885,7 +901,7 @@ void HandleTouchUp()
 			if (touchX > 160) // right side touched
 			{
 				displayedPage++;
-				if (displayedPage == MOTOR_CONTROLLER && mcStatusBytes[0] == 0) displayedPage++; // Skip past MC page if none detected
+				// if (displayedPage == MOTOR_CONTROLLER) displayedPage++; // Skip past MC page if none detected
 				if (displayedPage == TC_CHARGER && !haveReceivedChargerData) displayedPage++;
 				if (displayedPage == BMS_SUMMARY && numCells == 0) displayedPage++;
 				if (displayedPage == BMS12_DETAILS && numCells == 0) displayedPage++;
@@ -900,7 +916,7 @@ void HandleTouchUp()
 				if (displayedPage == BMS12_DETAILS && numCells == 0) displayedPage--;
 				if (displayedPage == BMS_SUMMARY && numCells == 0) displayedPage--; // Skip past BMS pages if no cells being monitored
 				if (displayedPage == TC_CHARGER && !haveReceivedChargerData) displayedPage--; // Skip if no charger
-				if (displayedPage == MOTOR_CONTROLLER && mcStatusBytes[0] == 0) displayedPage--; // Skip past MC page if none detected
+				// if (displayedPage == MOTOR_CONTROLLER) displayedPage--; // Skip past MC page if none detected
 				if (displayedPage == EVMS_CORE && isBMS16 && settings[SHUNT_SIZE] == 0 && !haveReceivedCurrentData) displayedPage = BMS12_DETAILS;
 			}
 
@@ -1391,7 +1407,7 @@ void RenderMainView()
 {
 	int temperature = evmsStatusBytes[7];
 	int voltage = (evmsStatusBytes[3]<<8) + evmsStatusBytes[4];
-	int isolation = evmsStatusBytes[6] & 0b01111111; // Bottom 7 bits only
+	int isolation = 100; //evmsStatusBytes[6] & 0b01111111; // Bottom 7 bits only
 
 	if (displayNeedsFullRedraw) // Render static parts
 	{
@@ -1681,8 +1697,9 @@ void RenderMainViewNoCurrentSensor()
 		strcpy(buffer, " -    ");
 	else
 	{
-		int isolation = evmsStatusBytes[6] & 0b01111111; // Bottom 7 bits only
-		int isol = ((isolation+5)/10)*10; // Do some rounding to nearest 10% so it doesn't jiggle too much
+	 	// int isolation = evmsStatusBytes[6] & 0b01111111; // Bottom 7 bits only
+		// int isol = ((isolation+5)/10)*10; // Do some rounding to nearest 10% so it doesn't jiggle too much
+		int isol = 100;
 		itoa(isol, buffer, 10); // Leakage
 		strcat(buffer, "%  ");
 	}
@@ -1703,82 +1720,114 @@ void RenderMCStatus()
 	{
 		displayNeedsFullRedraw = false;
 
-		DrawTitlebar("Sevcon Gen4 Status");
+		DrawTitlebar("YZ450 EV Status");
 
 		TFT_Text("SoC", 16, 30, 1, LABEL_COLOUR, BGND_COLOUR);
-		TFT_Text("RPM", 170, 30, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("Batt Temp", 170, 30, 1, LABEL_COLOUR, BGND_COLOUR);
 
-		TFT_Text("Batt Amps", 16, 88, 1, LABEL_COLOUR, BGND_COLOUR);
-		TFT_Text("Motor Amps", 170, 88, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("Pack Volts", 16, 88, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("Motor Temp", 170, 88, 1, LABEL_COLOUR, BGND_COLOUR);
 
-		TFT_Text("Motor Temp", 16, 146, 1, LABEL_COLOUR, BGND_COLOUR);
+		TFT_Text("Pack Amps", 16, 146, 1, LABEL_COLOUR, BGND_COLOUR);
 		TFT_Text("Invtr Temp", 170, 146, 1, LABEL_COLOUR, BGND_COLOUR);
 	}
 
 	// Dynamic parts
 
-	if (true)// mcCanTimeout > 0) // 1 second
+	// SoC
+	int ampHours = (evmsStatusBytes[1]<<8) + evmsStatusBytes[2];
+	int soc = Cap(201L*(long)ampHours/2L/(long)(settings[PACK_CAPACITY]*PACK_CAPACITY_MULTIPLIER*10), 0, 100); // 201L/2L is for rounding instead of truncating
+	itoa(soc, buffer, 10);
+	strcat(buffer, "%  ");
+	TFT_Text(buffer, 16, 48, 2, TEXT_COLOUR, BGND_COLOUR);
+
+	// Highest Batt Temp
+	int highestTemp = 0, numTempSensors = 0;
+	for (int n=0; n<MAX_BMS_MODULES; n++)
 	{
-		// SoC
-		int ampHours = (evmsStatusBytes[1]<<8) + evmsStatusBytes[2];
-		int soc = Cap(201L*(long)ampHours/2L/(long)(settings[PACK_CAPACITY]*PACK_CAPACITY_MULTIPLIER*10), 0, 100); // 201L/2L is for rounding instead of truncating
-		itoa(soc, buffer, 10);
-		strcat(buffer, "%  ");
-		TFT_Text(buffer, 16, 48, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		// RPM
-		itoa(2345, buffer, 10); // Motor amps
-		TFT_Text(buffer, 170, 48, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		// Battery Amps
-		int currenty = (current+50L)/100L; // round to 0.1A resolution 16 bit
-		if (settings[REVERSE_CURRENT_DISPLAY]) currenty = -currenty;
-		if (false) //currentSensorTimeout == 0 && !isBMS16)
-			strcpy(buffer, " -    ");
-		else
+		if (bmsCellCounts[n] > 0)
 		{
-			if (Abs(currenty) < 1000)
+			for (int i=0; i<2; i++)
 			{
-				itoa(currenty, buffer, 10);
-				AddDecimalPoint(buffer);
+				if (bmsTemps[n][i] > 0)
+				{
+				numTempSensors++;
+					if (bmsTemps[n][i] > highestTemp)
+						highestTemp = bmsTemps[n][i];
+				}
 			}
-			else
-				itoa(currenty/10, buffer, 10);
-
-			strcat(buffer, "A  ");
 		}
-		TFT_Text(buffer, 16, 106, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		itoa(mcStatusBytes[4]*5, buffer, 10); // Motor amps
-		strcat(buffer, "A  ");
-		TFT_Text(buffer, 170, 106, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		WriteTemp(buffer, 8); // Motor Temp
-		TFT_Text(buffer, 16, 164, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		WriteTemp(buffer, 8); // Inverter Temp
-		TFT_Text(buffer, 170, 164, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		// int mcError = mcStatusBytes[0]>>4;
-		// unsigned short col = RED;
-		// if (mcError == MC_THERMAL_CUTBACK_ERROR) col = ORANGE;
-		// if (mcError == MC_SLEEPING) col = L_GRAY;
-		// if (mcError == MC_NO_ERROR) col = GREEN;
-
-		// TFT_CentredText(mcErrors[mcError], 160, 210, 1, col, BGND_COLOUR);
 	}
-	else // Comms error
+
+	if (numTempSensors > 0)
 	{
-		strcpy(buffer, " -   ");
-		TFT_Text(buffer, 16, 48, 2, TEXT_COLOUR, BGND_COLOUR);
+		WriteTemp(buffer, highestTemp-40);
 		TFT_Text(buffer, 170, 48, 2, TEXT_COLOUR, BGND_COLOUR);
-		TFT_Text(buffer, 16, 106, 2, TEXT_COLOUR, BGND_COLOUR);
-		TFT_Text(buffer, 170, 106, 2, TEXT_COLOUR, BGND_COLOUR);
-		TFT_Text(buffer, 16, 164, 2, TEXT_COLOUR, BGND_COLOUR);
-		TFT_Text(buffer, 170, 164, 2, TEXT_COLOUR, BGND_COLOUR);
-
-		TFT_CentredText("   COMMS ERROR!   ", 160, 210, 1, RED, BGND_COLOUR);
 	}
+	else
+		TFT_Text(" -   ", 170, 48, 2, TEXT_COLOUR, BGND_COLOUR);
+
+		// Battery Voltage
+	int voltage = (evmsStatusBytes[3]<<8) + evmsStatusBytes[4];
+	if (voltage == 0)
+		strcpy(buffer, " -    ");
+	else
+	{
+		if (voltage < 1000 && numCells > 0)
+		{
+			itoa(voltage, buffer, 10);
+			AddDecimalPoint(buffer);
+		}
+		else
+			itoa(voltage/10, buffer, 10);
+
+		strcat(buffer, "V ");
+	}
+	TFT_Text(buffer, 16, 106, 2, TEXT_COLOUR, BGND_COLOUR);
+
+	if (mcCanTimeout > 0) // 1 second
+	{
+		// Motor Temp
+		WriteTemp(buffer, sevStatus0Bytes[6]);
+		TFT_Text(buffer, 170, 106, 2, TEXT_COLOUR, BGND_COLOUR);
+
+		// Inverter Temp
+		WriteTemp(buffer, sevStatus1Bytes[2]);
+		TFT_Text(buffer, 170, 164, 2, TEXT_COLOUR, BGND_COLOUR);
+	}
+	else {
+		// No comms to sevcon, render nothing
+		strcpy(buffer, " -   ");
+		TFT_Text(buffer, 170, 106, 2, TEXT_COLOUR, BGND_COLOUR);
+    TFT_Text(buffer, 170, 164, 2, TEXT_COLOUR, BGND_COLOUR);
+	}
+
+	// Battery Amps
+	int currenty = (current+50L)/100L; // round to 0.1A resolution 16 bit
+	if (settings[REVERSE_CURRENT_DISPLAY]) currenty = -currenty;
+	if (currentSensorTimeout == 0 && !isBMS16)
+		strcpy(buffer, " -    ");
+	else
+	{
+		if (Abs(currenty) < 1000)
+		{
+			itoa(currenty, buffer, 10);
+			AddDecimalPoint(buffer);
+		}
+		else
+			itoa(currenty/10, buffer, 10);
+
+		strcat(buffer, "A  ");
+	}
+	TFT_Text(buffer, 16, 164, 2, TEXT_COLOUR, BGND_COLOUR);
+
+	// int mcError = mcStatusBytes[0]>>4;
+	// unsigned short col = RED;
+	// if (mcError == MC_THERMAL_CUTBACK_ERROR) col = ORANGE;
+	// if (mcError == MC_SLEEPING) col = L_GRAY;
+	// if (mcError == MC_NO_ERROR) col = GREEN;
+
+	// TFT_CentredText(mcErrors[mcError], 160, 210, 1, col, BGND_COLOUR);
 }
 
 void RenderChargerStatus()
