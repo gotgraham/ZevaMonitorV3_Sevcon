@@ -1809,7 +1809,7 @@ void RenderMCStatus()
 		strcpy(buffer, " -    ");
 	else
 	{
-		if (Abs(currenty) < 1000)
+    if (Abs(currenty) < 100)
 		{
 			itoa(currenty, buffer, 10);
 			AddDecimalPoint(buffer);
@@ -1817,7 +1817,7 @@ void RenderMCStatus()
 		else
 			itoa(currenty/10, buffer, 10);
 
-		strcat(buffer, "A  ");
+		strcat(buffer, "A ");
 	}
 	TFT_Text(buffer, 16, 164, 2, TEXT_COLOUR, BGND_COLOUR);
 
